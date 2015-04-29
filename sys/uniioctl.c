@@ -295,13 +295,13 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		outBufLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 		//inBuf = Irp->AssociatedIrp.SystemBuffer;
 		//mapToUser( userMemory, MEM_WIDTH);
-		Irp->AssociatedIrp.SystemBuffer=userMemory;
+		Irp->AssociatedIrp.SystemBuffer=userMem;
 		
 		/*buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);	
 		RtlCopyMemory(buffer,
 						userMemory,
 						sizeof(userMemory));*/			
-		Irp->IoStatus.Information = sizeof(userMemory);	
+		Irp->IoStatus.Information = sizeof(userMem);	
 		//DbgPrint("Copied in buffer address 0x%p\n", userMemory);
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
