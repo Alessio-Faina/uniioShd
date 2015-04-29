@@ -129,7 +129,7 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		PSECURITY_DESCRIPTOR secure_desc;
 		BOOLEAN allocated;
 		SIZE_T view_size = MEM_WIDTH;
-		HANDLE sec_handle = NULL;
+		HANDLE sec_handle;
 		int proc = -1; 
 	
 	DbgPrint("UNIOCTL.SYS: Opening device");
@@ -167,11 +167,11 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 
 	
-#if 0
+#if 1
 	proc=1;
 	ObReferenceObjectByHandle
 		(
-		sec_handle,
+		&sec_handle,
 		SECTION_ALL_ACCESS,
 		NULL,
 		KernelMode,
