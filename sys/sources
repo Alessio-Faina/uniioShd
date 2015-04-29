@@ -1,0 +1,9 @@
+TARGETNAME=uniioctl
+TARGETTYPE=DRIVER
+
+
+MSC_WARNING_LEVEL=/W3 /WX
+
+
+SOURCES=uniioctl.c uniioctl.rc
+
