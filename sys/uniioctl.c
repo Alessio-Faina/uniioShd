@@ -167,7 +167,7 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 
 	
-
+#if 0
 	proc=1;
 	ObReferenceObjectByHandle
 		(
@@ -208,7 +208,7 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	// or cleanup on teardown.
 	proc = 7;
 	ZwClose(sec_handle);
-			
+#endif
 	}
 	except(EXCEPTION_EXECUTE_HANDLER)
 	{
@@ -293,14 +293,15 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_MMAP){
 		inBufLength = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 		outBufLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-		inBuf = Irp->AssociatedIrp.SystemBuffer;
+		//inBuf = Irp->AssociatedIrp.SystemBuffer;
 		//mapToUser( userMemory, MEM_WIDTH);
-		//Irp->AssociatedIrp.SystemBuffer=userMemory;
+		Irp->AssociatedIrp.SystemBuffer=userMemory;
+		
 		/*buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);	
 		RtlCopyMemory(buffer,
 						userMemory,
 						sizeof(userMemory));*/			
-		//Irp->IoStatus.Information = sizeof(userMemory);	
+		Irp->IoStatus.Information = sizeof(userMemory);	
 		//DbgPrint("Copied in buffer address 0x%p\n", userMemory);
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
