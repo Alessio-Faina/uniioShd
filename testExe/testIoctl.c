@@ -130,6 +130,8 @@ int _cdecl main(int argc, CHAR* argv[])
 							&bRetur,
 							NULL
 							);
+							
+		TestWrite();					
 		
 		printf("\nClosing handle...:\n");
 		CloseHandle ( hDevice );
@@ -164,15 +166,15 @@ int TestWrite()
                  0,                       // maximum object size (high-order DWORD)
                  4096,                // maximum object size (low-order DWORD)
                  "Global\\SharedMemory");                 // name of mapping object*/
-
-	lastError = GetLastError();
+	
 	if (hMapFile == NULL)
 	{
+		lastError = GetLastError();
 		printf("Could not create file mapping object (%d).\n" ,GetLastError());
 		return 1;
 	}
-	pBuf = (char*)MapViewOfFile(hMapFile,   // handle to map object
-								FILE_MAP_ALL_ACCESS, // read/write permission
+	pBuf = (char*)MapViewOfFile(hMapFile,   			// handle to map object
+								FILE_MAP_ALL_ACCESS, 	// read/write permission
 								0,
 								0,
 								4096);
@@ -184,12 +186,14 @@ int TestWrite()
 		return 1;
 	}
 	
+	//CopyMemory((PVOID)pBuf, "temp\n", (5 * sizeof(TCHAR)));
+	
 	printf("Print array\n");
 	for (i=0;i<4096;i++)
 	{
 		if (pBuf[i]!=0)
 		{
-			printf("pBuf[%i]: %i\n",i,pBuf[i]);
+			printf("pBuf[%i]: %c\n",i,pBuf[i]);
 		}
 	}
 	
@@ -198,10 +202,13 @@ int TestWrite()
 	printf("pBuf[2]: %i\n",pBuf[2]);*/
 	
 	
-	pBuf[0] = 'c';
-	pBuf[1] = '\n';
+	pBuf[0] = 'v';
+	pBuf[1] = 'a';
+	pBuf[2] = 'd';
+	pBuf[3] = 'o';
 	pBuf[4095] = '\n';
 	
+	UnmapViewOfFile(pBuf);
 	CloseHandle(hMapFile);
 	return 0;
 }

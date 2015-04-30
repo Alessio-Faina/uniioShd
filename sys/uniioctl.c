@@ -34,6 +34,7 @@ const int MEM_WIDTH = 4096;
 void*	userMem = NULL;
 HANDLE 	hsection;
 
+
 //Allocate the pages for the routines
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text( INIT, DriverEntry)
@@ -109,25 +110,27 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 	userMem = ExAllocatePoolWithTag(NonPagedPool,
 									MEM_WIDTH, 
 									POOL_TAG );
-      
-	try
+																
+    memset(userMem,0,4096);
+	/*try
 	{
 		//DbgPrint("Mem address: 0x%p",userMem);
-		/*test = (int*)userMem;
+		test = (int*)userMem;
 
-		for (i=0; i<4096; i++)
+		
+		for (i=0; i<(4096/sizeof(int)); i++)
 		{
 			test[i]=i;	
 		}
-		*/
-		testChar = (char*)userMem;
+		
+		/*testChar = (char*)userMem;
 		testChar[0]='d';
 	}
 	except(EXCEPTION_EXECUTE_HANDLER)
 	{
 		DbgPrint("Failed to test");
 	}
-    
+    */
 	deviceObject->Flags |= DO_DIRECT_IO;
 	
     return ntStatus;
@@ -135,18 +138,20 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 
 NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-	LARGE_INTEGER Li;
-	UNICODE_STRING name;
-	OBJECT_ATTRIBUTES oa;
-	SIZE_T j;
-
-    PIO_STACK_LOCATION  pStack;
-	NTSTATUS ntStatus = STATUS_SUCCESS;
+	PVOID   virtualAddress = NULL;
+	LARGE_INTEGER 					Li;
+	UNICODE_STRING 					name;
+	OBJECT_ATTRIBUTES 				oa;
+	SIZE_T 							view_size = MEM_WIDTH;
+	//PHYSICAL_ADDRESS				phys_addr;
+	
+    PIO_STACK_LOCATION  			pStack;
+	NTSTATUS 						ntStatus = STATUS_SUCCESS;
 	
 		PVOID sec_obj;
 		PSECURITY_DESCRIPTOR secure_desc;
 		BOOLEAN allocated;
-		SIZE_T view_size = 1500;
+
 		HANDLE sec_handle;
 	
 	DbgPrint("UNIOCTL.SYS: Opening device");
@@ -155,11 +160,9 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	pStack = IoGetCurrentIrpStackLocation(Irp);
 
-	
-	
 	Li.HighPart=0;
 	Li.LowPart=MEM_WIDTH;
-	j=MEM_WIDTH;
+	//view_size=MEM_WIDTH;
 
 	DbgPrint("UNIOCTL.SYS: Mapping memory");
 	RtlInitUnicodeString(&name, L"\\BaseNamedObjects\\Netmap");
@@ -169,7 +172,14 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 											OBJ_OPENIF,
 											(HANDLE)NULL,
 											(PSECURITY_DESCRIPTOR)NULL);*/
-	InitializeObjectAttributes(&oa, &name, 0,0,NULL);
+											
+	//phys_addr = MmGetPhysicalAddress(userMem);
+	//DbgPrint("userMem Physical address: %p\n",phys_addr);
+	//DbgPrint("userMem Virtual address: %p\n",userMem);
+	
+	//virtualAddress = 0;
+	
+	InitializeObjectAttributes(&oa, &name, OBJ_CASE_INSENSITIVE, (HANDLE)0, (PSECURITY_DESCRIPTOR)0);
 																			
 	ZwCreateSection(&hsection, 
 					SECTION_ALL_ACCESS, 
@@ -177,13 +187,17 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 					&Li, 
 					PAGE_READWRITE, 
 					SEC_COMMIT, 
-					NULL);
-	/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
-						&userMem, 0, MEM_WIDTH, NULL,
-						&j, ViewShare, 0, PAGE_READWRITE);*/
+					0);	
 	
-	ObReferenceObjectByHandle(hsection, SECTION_ALL_ACCESS, NULL, Irp->RequestorMode, &sec_obj, 0);
-	ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
+	/*
+	ObReferenceObjectByHandle(hsection, 
+								SECTION_ALL_ACCESS, 
+								(POBJECT_TYPE)0, 
+								KernelMode, 
+								&sec_obj, 
+								(POBJECT_HANDLE_INFORMATION)0);*/
+	
+	/*ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
 	if(!NT_SUCCESS(ntStatus))
 	{
 		return STATUS_INSUFFICIENT_RESOURCES;
@@ -192,19 +206,53 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,FALSE);
 	ObReleaseObjectSecurity(secure_desc, allocated);					
 	ObDereferenceObject(sec_obj);					
-			
+	*/
+		
+	/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
+						&userMem, 0, MEM_WIDTH, NULL,
+						&j, ViewShare, 0, PAGE_READWRITE);*/
+						
+	//offset.QuadPart = (LONGLONG)userMem;					
+	//virtualAddress = userMem;
+	//-------------------------------------Test memset locale-----------------------------
 	ZwMapViewOfSection(hsection, 						//SectionHandle 
-						ZwCurrentProcess(),		 		//ProcessHandle 
-						&userMem, 						//BaseAddress 
-						0, 								//ZeroBits 
+						(HANDLE)-1,		 				//ProcessHandle 	
+						&virtualAddress,				//BaseAddress 
+						0L, 							//ZeroBits 
 						MEM_WIDTH, 						//CommitSize 
-						NULL,							//SectionOffset 
-						&j, 							//ViewSize 
+						NULL,							//SectionOffset 					
+						&view_size, 					//ViewSize 
 						ViewShare, 						//InheritDisposition 
 						0, 								//AllocationType 
-						PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 				
-	//ZwClose( hsection );
-	//DbgPrint("Viewsize: %i\n",j);
+						PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
+	((char*)virtualAddress)[0] = 't';
+	((char*)virtualAddress)[1] = 'e';
+	((char*)virtualAddress)[2] = 's';
+	((char*)virtualAddress)[3] = 't';
+	
+	//userMem = virtualAddress;
+	//ZwUnmapViewOfSection( (HANDLE)-1, virtualAddress);  
+	//ZwClose(hsection);						  
+	//---------------------------------------------------------------------------------------
+	
+	/*----------------------------OLD SEMIWORKING PART (no bsod)----------------------------
+	ZwMapViewOfSection(hsection, 						//SectionHandle 
+						ZwCurrentProcess(),		 		//ProcessHandle 	
+						&userMem,	//&virtualAddress, 				//BaseAddress 
+						0L, 								//ZeroBits 
+						MEM_WIDTH, 						//CommitSize 
+						NULL,		//&phys_addr,						//SectionOffset 					
+						&view_size, 					//ViewSize 
+						ViewShare, 						//InheritDisposition 
+						0, 								//AllocationType 
+						PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
+
+*/						
+	//ZwClose( sec_obj );
+	//DbgPrint("virtualAddress: %p\n",virtualAddress);
+	DbgPrint("userMem: %p\n",userMem);
+	//virtualAddress[0]='e';
+	((char*)userMem)[0]='e';
 	//DbgPrint("hsection address: %p\n",hsection);
 	
 
@@ -253,10 +301,17 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 NTSTATUS ioctlClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
     PIO_STACK_LOCATION  pStack;
-
+	char* memChar = NULL;
+	
     DbgPrint("UNIOCTL.SYS: Closing device");
 
 	pStack = IoGetCurrentIrpStackLocation(Irp);
+	
+	memChar = (char*)userMem;
+	DbgPrint("Address MEM[0] = %p",memChar[0]);
+	DbgPrint("Value MEM[0] = %c",memChar[0]);
+			
+			
     Irp->IoStatus.Status = STATUS_SUCCESS;
     Irp->IoStatus.Information = 0;
 	//ExFreePool(userMemory);
@@ -267,9 +322,15 @@ NTSTATUS ioctlClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 VOID ioctlUnloadDriver(__in PDRIVER_OBJECT DriverObject)
 {
+	char* memChar = NULL;	
+	
 	PDEVICE_OBJECT deviceObject = DriverObject->DeviceObject;
     UNICODE_STRING uniWin32NameString;
 
+	memChar = (char*)userMem;
+	DbgPrint("Address MEM[0] = %p",memChar[0]);
+	DbgPrint("Value MEM[0] = %c",memChar[0]);
+	
     // Create counted string version of our Win32 device name.
     RtlInitUnicodeString( &uniWin32NameString, DOS_DEVICE_NAME );
 
@@ -342,6 +403,11 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			mem = (int*)userMem;
 			DbgPrint("Address MEM[0] = %p",mem[0]);
 			DbgPrint("Value MEM[0] = %i",mem[0]);
+			
+			/*DbgPrint("VirtualAddress[0] = %p",virtualAddress[0]);
+			DbgPrint("VirtualAddress[1] = %p",virtualAddress[1]);
+			DbgPrint("VirtualAddress[2] = %p",virtualAddress[2]);
+			DbgPrint("VirtualAddress[3] = %p",virtualAddress[3]);*/
 		}
 		except(EXCEPTION_EXECUTE_HANDLER)
 		{
@@ -431,8 +497,6 @@ PVOID CreateAndMapMemory(PMDL* PMemMdl,PVOID* UserVa)
 
     return STATUS_SUCCESS;
 }
-*/
-/*
 void UnMapAndFreeMemory(PMDL PMdl,PVOID UserVa)
 {
  //
@@ -448,13 +512,9 @@ void UnMapAndFreeMemory(PMDL PMdl,PVOID UserVa)
  MmUnmapLockedPages(UserVa, PMdl);
  
  MmFreePagesFromMdl(PMdl);       
- IoFreeMdl(PMdl);
+ I
  
- 
-}
-*/
-
-void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
+ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
 {
     UNICODE_STRING      memName;
     OBJECT_ATTRIBUTES   objectAttributes;
@@ -465,8 +525,8 @@ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
     ULONG               length;
     NTSTATUS            status;
 
-   /* if( userAddrIdx == N_USER_ADDRESSES )
-        return 0; // No more room to store address for unmapping at exit.*/
+	// if( userAddrIdx == N_USER_ADDRESSES )
+    //    return 0; // No more room to store address for unmapping at exit.
 
     memset( &objectAttributes, 0, sizeof( objectAttributes ));
     RtlInitUnicodeString( &memName, L"\\Device\\PhysicalMemory" );
@@ -500,8 +560,7 @@ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
               (HANDLE)-1,       // IN HANDLE ProcessHandle (Any/current?).
               &virtualAddress,  // IN OUT PVOID *BaseAddress
               0L,               // IN ULONG ZeroBits
-              length,           // IN ULONG CommitSize
-              &viewBase,        // IN OUT PLARGE_INTEGER SectionOffset
+              length,           // IN ULONG Come,        // IN OUT PLARGE_INTEGER SectionOffset
               &length,          // IN OUT PULONG ViewSize
               ViewShare,        // IN SECTION_INHERIT InheritDisposition
               0,                // IN ULONG AllocationType
@@ -513,8 +572,9 @@ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
             }
             else
                 virtualAddress = 0;
-        }   // ObReferenceObjectByHandle OK.
-         ZwClose( hPhysMem );
+               }   // ObReferenceObjectByHandle OK.
+        ZwClose( hPhysMem );
     }   // ZwOpenSection OK.
     return virtualAddress;
 };
+*/
