@@ -192,13 +192,16 @@ int TestWrite()
 			printf("pBuf[%i]: %i\n",i,pBuf[i]);
 		}
 	}
+	
 	/*printf("pBuf[0]: %i\n",pBuf[0]);
 	printf("pBuf[1]: %i\n",pBuf[1]);
 	printf("pBuf[2]: %i\n",pBuf[2]);*/
 	
+	
 	pBuf[0] = 'c';
 	pBuf[1] = '\n';
 	pBuf[4095] = '\n';
+	
 	CloseHandle(hMapFile);
 	return 0;
 }

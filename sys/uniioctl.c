@@ -28,7 +28,7 @@ DRIVER_UNLOAD ioctlUnloadDriver;
 VOID PrintIrpInfo(PIRP Irp);
 
 //Tag for memory pool
-#define POOL_TAG    'mteN'
+#define POOL_TAG    'looP'
 const int MEM_WIDTH = 4096;
 
 void*	userMem = NULL;
@@ -51,6 +51,7 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 	PDEVICE_DESCRIPTION devDes;
 	int i;
 	int* test;
+	char* testChar;
 	
     UNREFERENCED_PARAMETER(RegistryPath);
         
@@ -111,13 +112,16 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
       
 	try
 	{
-		test = (int*)userMem;
+		//DbgPrint("Mem address: 0x%p",userMem);
+		/*test = (int*)userMem;
 
 		for (i=0; i<4096; i++)
 		{
 			test[i]=i;	
 		}
-		
+		*/
+		testChar = (char*)userMem;
+		testChar[0]='d';
 	}
 	except(EXCEPTION_EXECUTE_HANDLER)
 	{
@@ -167,11 +171,17 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 											(PSECURITY_DESCRIPTOR)NULL);*/
 	InitializeObjectAttributes(&oa, &name, 0,0,NULL);
 																			
-	ZwCreateSection(&hsection, SECTION_ALL_ACCESS, &oa, &Li, PAGE_READWRITE, SEC_COMMIT, NULL);
+	ZwCreateSection(&hsection, 
+					SECTION_ALL_ACCESS, 
+					&oa, 
+					&Li, 
+					PAGE_READWRITE, 
+					SEC_COMMIT, 
+					NULL);
 	/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
 						&userMem, 0, MEM_WIDTH, NULL,
 						&j, ViewShare, 0, PAGE_READWRITE);*/
-	/*
+	
 	ObReferenceObjectByHandle(hsection, SECTION_ALL_ACCESS, NULL, Irp->RequestorMode, &sec_obj, 0);
 	ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
 	if(!NT_SUCCESS(ntStatus))
@@ -182,11 +192,20 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,FALSE);
 	ObReleaseObjectSecurity(secure_desc, allocated);					
 	ObDereferenceObject(sec_obj);					
-	*/			
-	ZwMapViewOfSection(hsection, ZwCurrentProcess(), 
-						&userMem, 0, MEM_WIDTH, NULL,
-						&j, ViewShare, 0, PAGE_READWRITE | PAGE_NOCACHE);					
+			
+	ZwMapViewOfSection(hsection, 						//SectionHandle 
+						ZwCurrentProcess(),		 		//ProcessHandle 
+						&userMem, 						//BaseAddress 
+						0, 								//ZeroBits 
+						MEM_WIDTH, 						//CommitSize 
+						NULL,							//SectionOffset 
+						&j, 							//ViewSize 
+						ViewShare, 						//InheritDisposition 
+						0, 								//AllocationType 
+						PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 				
 	//ZwClose( hsection );
+	//DbgPrint("Viewsize: %i\n",j);
+	//DbgPrint("hsection address: %p\n",hsection);
 	
 
 #if 0	
@@ -274,7 +293,8 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
     PMDL                mdl = NULL;
     PCHAR       		buffer = NULL;
 	
-	char*				mem = NULL;
+	int*				mem = NULL;
+	char*				memChar = NULL;
 	
 	DbgPrint("UNIIOCTL.SYS: ioctlDeviceControl\n");
 	
@@ -312,10 +332,21 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		//DbgPrint("Copied in buffer address 0x%p\n", userMemory);
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
-		mem=(char*)userMem;
-		DbgPrint("Address MEM[0] = %p",mem[0]);
-		DbgPrint("Value MEM[0] = %c",mem[0]);
-		//DbgPrint("Written in [o] = %s",((char*) userMem)[0]);
+		try
+		{
+			memChar = (char*)userMem;
+			DbgPrint("Address MEM[0] = %p",memChar[0]);
+			DbgPrint("Value MEM[0] = %c",memChar[0]);
+			//DbgPrint("Written in [o] = %s",((char*) userMem)[0]);
+			
+			mem = (int*)userMem;
+			DbgPrint("Address MEM[0] = %p",mem[0]);
+			DbgPrint("Value MEM[0] = %i",mem[0]);
+		}
+		except(EXCEPTION_EXECUTE_HANDLER)
+		{
+			DbgPrint("Failed to read memory");
+		}		
 	}else{
 		NtStatus = STATUS_INVALID_DEVICE_REQUEST;		
 	}
@@ -483,7 +514,7 @@ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
             else
                 virtualAddress = 0;
         }   // ObReferenceObjectByHandle OK.
-        ZwClose( hPhysMem );
+         ZwClose( hPhysMem );
     }   // ZwOpenSection OK.
     return virtualAddress;
 };
