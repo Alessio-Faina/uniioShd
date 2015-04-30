@@ -23,20 +23,9 @@ int _cdecl main(int argc, CHAR* argv[])
 	char InputBuffer[100];
 	int bRetur  = 0;
 	BOOL transactionResult;
-	LPCVOID mapping;
-	SYSTEM_INFO *sysInfo;
-	
-	char* sharedMem = NULL;
 
 	printf("Start!\n");
-	sysInfo = malloc(sizeof(SYSTEM_INFO));
-	ZeroMemory(sysInfo, sizeof(SYSTEM_INFO));
-	GetSystemInfo(sysInfo);
-	printf("Granularity: %i",sysInfo->dwAllocationGranularity);
-	if (sysInfo == NULL)
-	{
-		return 0;
-	}
+
 	//If at least one parameter unload a locked driver
 	if (argc>1)
 	{
@@ -76,73 +65,26 @@ int _cdecl main(int argc, CHAR* argv[])
                             GENERIC_READ | GENERIC_WRITE,
                             0,
                             NULL,
-                            CREATE_ALWAYS,
+                            OPEN_ALWAYS,
                             FILE_ATTRIBUTE_NORMAL,
                             NULL)) == INVALID_HANDLE_VALUE) {
 
         errNum = GetLastError();
 
-        if (errNum != ERROR_FILE_NOT_FOUND) {
+        if (errNum == ERROR_FILE_NOT_FOUND) {
             printf("CreateFile failed!  ERROR_FILE_NOT_FOUND = %d\n", errNum);
             return ;
 			}else{
 			printf("CreateFile ok!\n");		
         }
 		
-        if (!SetupDriverName(driverLocation, sizeof(driverLocation))) {	
-            return ;
-        }
-
-        if (!ManageDriver(DRIVER_NAME,
-                          driverLocation,
-                          DRIVER_FUNC_INSTALL
-                          )) {
-            printf("Unable to install driver. \n");
-            ManageDriver(DRIVER_NAME,
-                         driverLocation,
-                         DRIVER_FUNC_REMOVE
-                         );
-            return;
-        }
-        hDevice = CreateFile( "\\\\.\\UnipiIoctl",
-                            GENERIC_READ | GENERIC_WRITE,
-                            0,
-                            NULL,
-                            CREATE_ALWAYS,
-                            FILE_ATTRIBUTE_NORMAL,
-                            NULL);
-
-        if ( hDevice == INVALID_HANDLE_VALUE ){
-            printf ( "Error: CreatFile Failed : %d\n", GetLastError());
-            return;
-        }
-		printf("CreateFile ok!\n");
-		printf("Press enter to start...\n");
-		system("PAUSE");
-		TestWrite();
-		
-		transactionResult = DeviceIoControl ( hDevice,
-							(DWORD) IOCTL_TEST_WRITTEN_DATA,
-							0,
-							0,
-							0,
-							0,
-							&bRetur,
-							NULL
-							);
-							
-		system("PAUSE");					
-		TestWrite();						
-		printf("\nClosing handle...:\n");
-		system("PAUSE");
-		CloseHandle ( hDevice );
-		printf("\Unloading driver...:\n");
-		ManageDriver(DRIVER_NAME,
-					 driverLocation,
-					 DRIVER_FUNC_REMOVE
-					 );
 	}
-	
+	printf("Press enter to start...\n");
+	system("PAUSE");
+	TestWrite();
+	system("PAUSE");
+	printf("\nClosing handle...:\n");
+	CloseHandle ( hDevice );
     return 0;
 }
 
@@ -203,10 +145,10 @@ int TestWrite()
 	printf("pBuf[2]: %i\n",pBuf[2]);*/
 	
 	
-	pBuf[0] = 'v';
-	pBuf[1] = 'a';
-	pBuf[2] = 'd';
-	pBuf[3] = 'o';
+	pBuf[0] = 'e';
+	pBuf[1] = 'x';
+	pBuf[2] = 'e';
+	pBuf[3] = '2';
 	pBuf[4095] = '\n';
 	
 	UnmapViewOfFile(pBuf);

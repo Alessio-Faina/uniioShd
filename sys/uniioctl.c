@@ -33,6 +33,7 @@ const int MEM_WIDTH = 4096;
 
 void*	userMem = NULL;
 HANDLE 	hsection;
+int AttachedProcesses = 0;
 
 
 //Allocate the pages for the routines
@@ -155,141 +156,146 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		HANDLE sec_handle;
 	
 	DbgPrint("UNIOCTL.SYS: Opening device");
-		
+
+	
 	UNREFERENCED_PARAMETER(DeviceObject);
 
 	pStack = IoGetCurrentIrpStackLocation(Irp);
-
-	Li.HighPart=0;
-	Li.LowPart=MEM_WIDTH;
-	//view_size=MEM_WIDTH;
-
-	DbgPrint("UNIOCTL.SYS: Mapping memory");
-	RtlInitUnicodeString(&name, L"\\BaseNamedObjects\\Netmap");
-	/*InitializeObjectAttributes(&oa, &name, OBJ_KERNEL_HANDLE | 
-											OBJ_FORCE_ACCESS_CHECK | 
-											OBJ_CASE_INSENSITIVE |
-											OBJ_OPENIF,
-											(HANDLE)NULL,
-											(PSECURITY_DESCRIPTOR)NULL);*/
-											
-	//phys_addr = MmGetPhysicalAddress(userMem);
-	//DbgPrint("userMem Physical address: %p\n",phys_addr);
-	//DbgPrint("userMem Virtual address: %p\n",userMem);
 	
-	//virtualAddress = 0;
-	
-	InitializeObjectAttributes(&oa, &name, OBJ_CASE_INSENSITIVE, (HANDLE)0, (PSECURITY_DESCRIPTOR)0);
-																			
-	ZwCreateSection(&hsection, 
-					SECTION_ALL_ACCESS, 
-					&oa, 
-					&Li, 
-					PAGE_READWRITE, 
-					SEC_COMMIT, 
-					0);	
-	
-	/*
-	ObReferenceObjectByHandle(hsection, 
-								SECTION_ALL_ACCESS, 
-								(POBJECT_TYPE)0, 
-								KernelMode, 
-								&sec_obj, 
-								(POBJECT_HANDLE_INFORMATION)0);*/
-	
-	/*ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
-	if(!NT_SUCCESS(ntStatus))
+	AttachedProcesses++;
+	if (AttachedProcesses==1)
 	{
-		return STATUS_INSUFFICIENT_RESOURCES;
-	}
+		Li.HighPart=0;
+		Li.LowPart=MEM_WIDTH;
+		//view_size=MEM_WIDTH;
 
-	RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,FALSE);
-	ObReleaseObjectSecurity(secure_desc, allocated);					
-	ObDereferenceObject(sec_obj);					
-	*/
+		DbgPrint("UNIOCTL.SYS: Mapping memory");
+		RtlInitUnicodeString(&name, L"\\BaseNamedObjects\\Netmap");
+		/*InitializeObjectAttributes(&oa, &name, OBJ_KERNEL_HANDLE | 
+												OBJ_FORCE_ACCESS_CHECK | 
+												OBJ_CASE_INSENSITIVE |
+												OBJ_OPENIF,
+												(HANDLE)NULL,
+												(PSECURITY_DESCRIPTOR)NULL);*/
+												
+		//phys_addr = MmGetPhysicalAddress(userMem);
+		//DbgPrint("userMem Physical address: %p\n",phys_addr);
+		//DbgPrint("userMem Virtual address: %p\n",userMem);
 		
-	/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
-						&userMem, 0, MEM_WIDTH, NULL,
-						&j, ViewShare, 0, PAGE_READWRITE);*/
-						
-	//offset.QuadPart = (LONGLONG)userMem;					
-	//virtualAddress = userMem;
-	//-------------------------------------Test memset locale-----------------------------
-	ZwMapViewOfSection(hsection, 						//SectionHandle 
-						(HANDLE)-1,		 				//ProcessHandle 	
-						&virtualAddress,				//BaseAddress 
-						0L, 							//ZeroBits 
-						MEM_WIDTH, 						//CommitSize 
-						NULL,							//SectionOffset 					
-						&view_size, 					//ViewSize 
-						ViewShare, 						//InheritDisposition 
-						0, 								//AllocationType 
-						PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
-	((char*)virtualAddress)[0] = 't';
-	((char*)virtualAddress)[1] = 'e';
-	((char*)virtualAddress)[2] = 's';
-	((char*)virtualAddress)[3] = 't';
-	
-	//userMem = virtualAddress;
-	//ZwUnmapViewOfSection( (HANDLE)-1, virtualAddress);  
-	//ZwClose(hsection);						  
-	//---------------------------------------------------------------------------------------
-	
-	/*----------------------------OLD SEMIWORKING PART (no bsod)----------------------------
-	ZwMapViewOfSection(hsection, 						//SectionHandle 
-						ZwCurrentProcess(),		 		//ProcessHandle 	
-						&userMem,	//&virtualAddress, 				//BaseAddress 
-						0L, 								//ZeroBits 
-						MEM_WIDTH, 						//CommitSize 
-						NULL,		//&phys_addr,						//SectionOffset 					
-						&view_size, 					//ViewSize 
-						ViewShare, 						//InheritDisposition 
-						0, 								//AllocationType 
-						PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
+		//virtualAddress = 0;
+		
+		InitializeObjectAttributes(&oa, &name, OBJ_CASE_INSENSITIVE, (HANDLE)0, (PSECURITY_DESCRIPTOR)0);
+																				
+		ZwCreateSection(&hsection, 
+						SECTION_ALL_ACCESS, 
+						&oa, 
+						&Li, 
+						PAGE_READWRITE, 
+						SEC_COMMIT, 
+						0);	
+		
+		/*
+		ObReferenceObjectByHandle(hsection, 
+									SECTION_ALL_ACCESS, 
+									(POBJECT_TYPE)0, 
+									KernelMode, 
+									&sec_obj, 
+									(POBJECT_HANDLE_INFORMATION)0);*/
+		
+		/*ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
+		if(!NT_SUCCESS(ntStatus))
+		{
+			return STATUS_INSUFFICIENT_RESOURCES;
+		}
 
-*/						
-	//ZwClose( sec_obj );
-	//DbgPrint("virtualAddress: %p\n",virtualAddress);
-	DbgPrint("userMem: %p\n",userMem);
-	//virtualAddress[0]='e';
-	((char*)userMem)[0]='e';
-	//DbgPrint("hsection address: %p\n",hsection);
-	
+		RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,FALSE);
+		ObReleaseObjectSecurity(secure_desc, allocated);					
+		ObDereferenceObject(sec_obj);					
+		*/
+			
+		/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
+							&userMem, 0, MEM_WIDTH, NULL,
+							&j, ViewShare, 0, PAGE_READWRITE);*/
+							
+		//offset.QuadPart = (LONGLONG)userMem;					
+		//virtualAddress = userMem;
+		//-------------------------------------Test memset locale-----------------------------
+		ZwMapViewOfSection(hsection, 						//SectionHandle 
+							(HANDLE)-1,		 				//ProcessHandle 	
+							&virtualAddress,				//BaseAddress 
+							0L, 							//ZeroBits 
+							MEM_WIDTH, 						//CommitSize 
+							NULL,							//SectionOffset 					
+							&view_size, 					//ViewSize 
+							ViewShare, 						//InheritDisposition 
+							0, 								//AllocationType 
+							PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
+		((char*)virtualAddress)[0] = 't';
+		((char*)virtualAddress)[1] = 'e';
+		((char*)virtualAddress)[2] = 's';
+		((char*)virtualAddress)[3] = 't';
+		
+		//userMem = virtualAddress;
+		//ZwUnmapViewOfSection( (HANDLE)-1, virtualAddress);  
+		//ZwClose(hsection);						  
+		//---------------------------------------------------------------------------------------
+		
+		/*----------------------------OLD SEMIWORKING PART (no bsod)----------------------------
+		ZwMapViewOfSection(hsection, 						//SectionHandle 
+							ZwCurrentProcess(),		 		//ProcessHandle 	
+							&userMem,	//&virtualAddress, 				//BaseAddress 
+							0L, 								//ZeroBits 
+							MEM_WIDTH, 						//CommitSize 
+							NULL,		//&phys_addr,						//SectionOffset 					
+							&view_size, 					//ViewSize 
+							ViewShare, 						//InheritDisposition 
+							0, 								//AllocationType 
+							PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
 
-#if 0	
-	ObReferenceObjectByHandle
-		(
-		&sec_handle,
-		SECTION_ALL_ACCESS,
-		NULL,
-		KernelMode,
-		&sec_obj,
-		0
-		);
-	ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);	
-	RtlSetDaclSecurityDescriptor(secure_desc, FALSE, NULL, FALSE);
-	ObReleaseObjectSecurity(secure_desc, allocated);
-	ObDereferenceObject(sec_obj);	
-	ntStatus = ZwMapViewOfSection
-		(
-		sec_handle,
-		ZwCurrentProcess(),
-		&userMem,
-		0L,
-		view_size,
-		NULL,
-		&view_size,
-		ViewUnmap,
-		0,
-		PAGE_READWRITE
-		);
+	*/						
+		//ZwClose( sec_obj );
+		//DbgPrint("virtualAddress: %p\n",virtualAddress);
+		DbgPrint("userMem: %p\n",userMem);
+		//virtualAddress[0]='e';
+		((char*)userMem)[0]='e';
+		//DbgPrint("hsection address: %p\n",hsection);
+		
 
-	// It is safe to close the section object handle once mapping has
-	// been established. This way, we do not have to maintain the handle
-	// or cleanup on teardown.
-	ZwClose(sec_handle);
+	#if 0	
+		ObReferenceObjectByHandle
+			(
+			&sec_handle,
+			SECTION_ALL_ACCESS,
+			NULL,
+			KernelMode,
+			&sec_obj,
+			0
+			);
+		ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);	
+		RtlSetDaclSecurityDescriptor(secure_desc, FALSE, NULL, FALSE);
+		ObReleaseObjectSecurity(secure_desc, allocated);
+		ObDereferenceObject(sec_obj);	
+		ntStatus = ZwMapViewOfSection
+			(
+			sec_handle,
+			ZwCurrentProcess(),
+			&userMem,
+			0L,
+			view_size,
+			NULL,
+			&view_size,
+			ViewUnmap,
+			0,
+			PAGE_READWRITE
+			);
+
+		// It is safe to close the section object handle once mapping has
+		// been established. This way, we do not have to maintain the handle
+		// or cleanup on teardown.
+		ZwClose(sec_handle);
 #endif
-	
+			
+	}
     Irp->IoStatus.Status = ntStatus;
     Irp->IoStatus.Information = 0;
 
@@ -315,7 +321,11 @@ NTSTATUS ioctlClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
     Irp->IoStatus.Status = STATUS_SUCCESS;
     Irp->IoStatus.Information = 0;
 	//ExFreePool(userMemory);
-	ZwClose(hsection);
+	AttachedProcesses--;
+	if (AttachedProcesses==0)
+	{
+		ZwClose(hsection);
+	}
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
     return STATUS_SUCCESS;
 }
