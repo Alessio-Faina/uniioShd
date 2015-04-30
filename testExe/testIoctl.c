@@ -148,8 +148,9 @@ int TestWrite()
 	HANDLE hMapFile;
 	char* pBuf = NULL;
 	int lastError=0;
+	int i = 0;
 		
-	pBuf = malloc(4096);
+	//pBuf = malloc(4096);
 	
 
 	hMapFile = OpenFileMapping(
@@ -183,10 +184,21 @@ int TestWrite()
 		return 1;
 	}
 	
-	printf("pBuf[0]: %i",pBuf[0]);
+	printf("Print array\n");
+	for (i=0;i<4096;i++)
+	{
+		if (pBuf[i]!=0)
+		{
+			printf("pBuf[%i]: %i\n",i,pBuf[i]);
+		}
+	}
+	/*printf("pBuf[0]: %i\n",pBuf[0]);
+	printf("pBuf[1]: %i\n",pBuf[1]);
+	printf("pBuf[2]: %i\n",pBuf[2]);*/
 	
 	pBuf[0] = 'c';
 	pBuf[1] = '\n';
+	pBuf[4095] = '\n';
 	CloseHandle(hMapFile);
 	return 0;
 }

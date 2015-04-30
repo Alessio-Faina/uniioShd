@@ -28,7 +28,7 @@ DRIVER_UNLOAD ioctlUnloadDriver;
 VOID PrintIrpInfo(PIRP Irp);
 
 //Tag for memory pool
-#define POOL_TAG    'looP'
+#define POOL_TAG    'mteN'
 const int MEM_WIDTH = 4096;
 
 void*	userMem = NULL;
@@ -49,8 +49,8 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
     UNICODE_STRING  ntWin32NameString;    
     PDEVICE_OBJECT  deviceObject = NULL;    // pointer to the instanced device object
 	PDEVICE_DESCRIPTION devDes;
-	
-	char* test;
+	int i;
+	int* test;
 	
     UNREFERENCED_PARAMETER(RegistryPath);
         
@@ -111,8 +111,13 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
       
 	try
 	{
-		test = (char*)userMem;
-		test[0]='d';
+		test = (int*)userMem;
+
+		for (i=0; i<4096; i++)
+		{
+			test[i]=i;	
+		}
+		
 	}
 	except(EXCEPTION_EXECUTE_HANDLER)
 	{
@@ -166,17 +171,18 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
 						&userMem, 0, MEM_WIDTH, NULL,
 						&j, ViewShare, 0, PAGE_READWRITE);*/
-	ObReferenceObjectByHandle(hsection, SECTION_ALL_ACCESS, NULL, UserMode, &sec_obj, 0);
+	/*
+	ObReferenceObjectByHandle(hsection, SECTION_ALL_ACCESS, NULL, Irp->RequestorMode, &sec_obj, 0);
 	ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
 	if(!NT_SUCCESS(ntStatus))
 	{
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
-	RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,TRUE);
+	RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,FALSE);
 	ObReleaseObjectSecurity(secure_desc, allocated);					
-						
-						
+	ObDereferenceObject(sec_obj);					
+	*/			
 	ZwMapViewOfSection(hsection, ZwCurrentProcess(), 
 						&userMem, 0, MEM_WIDTH, NULL,
 						&j, ViewShare, 0, PAGE_READWRITE | PAGE_NOCACHE);					
@@ -193,17 +199,10 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		&sec_obj,
 		0
 		);
-
-
-	ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
-	
+	ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);	
 	RtlSetDaclSecurityDescriptor(secure_desc, FALSE, NULL, FALSE);
-
 	ObReleaseObjectSecurity(secure_desc, allocated);
-
 	ObDereferenceObject(sec_obj);	
-	
-
 	ntStatus = ZwMapViewOfSection
 		(
 		sec_handle,
@@ -221,7 +220,6 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	// It is safe to close the section object handle once mapping has
 	// been established. This way, we do not have to maintain the handle
 	// or cleanup on teardown.
-
 	ZwClose(sec_handle);
 #endif
 	
@@ -310,7 +308,7 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		RtlCopyMemory(buffer,
 						userMemory,
 						sizeof(userMemory));*/			
-		Irp->IoStatus.Information = sizeof(userMem);	
+		Irp->IoStatus.Information = sizeof(void*);	
 		//DbgPrint("Copied in buffer address 0x%p\n", userMemory);
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
@@ -331,7 +329,7 @@ VOID PrintIrpInfo(PIRP Irp)
     PIO_STACK_LOCATION  irpSp;
     irpSp = IoGetCurrentIrpStackLocation( Irp );
 
-    PAGED_CODE();
+    //PAGED_CODE();
 
     DbgPrint("UNIIOCTL.SYS: \tIrp->AssociatedIrp.SystemBuffer = 0x%p\n",
         Irp->AssociatedIrp.SystemBuffer);
@@ -488,5 +486,4 @@ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
         ZwClose( hPhysMem );
     }   // ZwOpenSection OK.
     return virtualAddress;
-}
-                                                                                                                                                                                                                                                                     
+};
