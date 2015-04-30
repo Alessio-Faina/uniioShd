@@ -1,5 +1,6 @@
 #include <ntddk.h>          // various NT definitions
 #include <string.h>
+#include <WinDef.h>
 
 #include "uniioctl.h"
 
@@ -136,7 +137,7 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		PVOID sec_obj;
 		PSECURITY_DESCRIPTOR secure_desc;
 		BOOLEAN allocated;
-		SIZE_T view_size = MEM_WIDTH;
+		SIZE_T view_size = 1500;
 		HANDLE sec_handle;
 	
 	DbgPrint("UNIOCTL.SYS: Opening device");
@@ -162,13 +163,27 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	InitializeObjectAttributes(&oa, &name, 0,0,NULL);
 																			
 	ZwCreateSection(&hsection, SECTION_ALL_ACCESS, &oa, &Li, PAGE_READWRITE, SEC_COMMIT, NULL);
-	ZwMapViewOfSection(hsection, NtCurrentProcess(), 
+	/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
 						&userMem, 0, MEM_WIDTH, NULL,
-						&j, ViewShare, 0, PAGE_READWRITE);
+						&j, ViewShare, 0, PAGE_READWRITE);*/
+	ObReferenceObjectByHandle(hsection, SECTION_ALL_ACCESS, NULL, UserMode, &sec_obj, 0);
+	ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
+	if(!NT_SUCCESS(ntStatus))
+	{
+		return STATUS_INSUFFICIENT_RESOURCES;
+	}
+
+	RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,TRUE);
+	ObReleaseObjectSecurity(secure_desc, allocated);					
+						
+						
+	ZwMapViewOfSection(hsection, ZwCurrentProcess(), 
+						&userMem, 0, MEM_WIDTH, NULL,
+						&j, ViewShare, 0, PAGE_READWRITE | PAGE_NOCACHE);					
 	//ZwClose( hsection );
 	
 
-	
+#if 0	
 	ObReferenceObjectByHandle
 		(
 		&sec_handle,
@@ -181,7 +196,7 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 
 	ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
-#if 0
+	
 	RtlSetDaclSecurityDescriptor(secure_desc, FALSE, NULL, FALSE);
 
 	ObReleaseObjectSecurity(secure_desc, allocated);
@@ -474,4 +489,4 @@ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
     }   // ZwOpenSection OK.
     return virtualAddress;
 }
-                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                     

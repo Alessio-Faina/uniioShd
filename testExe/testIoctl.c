@@ -174,7 +174,7 @@ int TestWrite()
 								FILE_MAP_ALL_ACCESS, // read/write permission
 								0,
 								0,
-								0);
+								4096);
 
 	if (pBuf == NULL)
 	{
@@ -183,7 +183,7 @@ int TestWrite()
 		return 1;
 	}
 	
-	printf("pBuf[0]: %c",pBuf[0]);
+	printf("pBuf[0]: %i",pBuf[0]);
 	
 	pBuf[0] = 'c';
 	pBuf[1] = '\n';
