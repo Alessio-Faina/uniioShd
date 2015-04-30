@@ -139,15 +139,18 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 
 NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-	PVOID   virtualAddress = NULL;
+	PVOID   						virtualAddress = NULL;
 	LARGE_INTEGER 					Li;
 	UNICODE_STRING 					name;
 	OBJECT_ATTRIBUTES 				oa;
 	SIZE_T 							view_size = MEM_WIDTH;
-	//PHYSICAL_ADDRESS				phys_addr;
+	PHYSICAL_ADDRESS				phys_addr;
 	
     PIO_STACK_LOCATION  			pStack;
 	NTSTATUS 						ntStatus = STATUS_SUCCESS;
+	
+	PMDL								Mdl;
+	PULONG							UMBuffer;
 	
 		PVOID sec_obj;
 		PSECURITY_DESCRIPTOR secure_desc;
@@ -183,6 +186,18 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		//DbgPrint("userMem Virtual address: %p\n",userMem);
 		
 		//virtualAddress = 0;
+		
+		/*Mdl =  IoAllocateMdl(userMem, MEM_WIDTH, 0,FALSE, NULL);
+		MmBuildMdlForNonPagedPool(Mdl);
+		UMBuffer = (PULONG)(((ULONG)MmMapLockedPagesSpecifyCache (Mdl, 
+													UserMode,
+													MmNonCached,
+													NULL,
+													FALSE,
+													NormalPagePriority)
+													| MmGetMdlByteOffset(Mdl)));
+		phys_addr = MmGetPhysicalAddress(UMBuffer);		
+		*/
 		
 		InitializeObjectAttributes(&oa, &name, OBJ_CASE_INSENSITIVE, (HANDLE)0, (PSECURITY_DESCRIPTOR)0);
 																				
