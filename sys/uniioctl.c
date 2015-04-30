@@ -107,9 +107,17 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 	userMem = ExAllocatePoolWithTag(NonPagedPool,
 									MEM_WIDTH, 
 									POOL_TAG );
-        		
-    test = (char*)userMem;
-	test[0]='d';
+      
+	try
+	{
+		test = (char*)userMem;
+		test[0]='d';
+	}
+	except(EXCEPTION_EXECUTE_HANDLER)
+	{
+		DbgPrint("Failed to test");
+	}
+    
 	deviceObject->Flags |= DO_DIRECT_IO;
 	
     return ntStatus;
@@ -130,7 +138,6 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		BOOLEAN allocated;
 		SIZE_T view_size = MEM_WIDTH;
 		HANDLE sec_handle;
-		int proc = -1; 
 	
 	DbgPrint("UNIOCTL.SYS: Opening device");
 		
@@ -144,11 +151,8 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	Li.LowPart=MEM_WIDTH;
 	j=MEM_WIDTH;
 
-	try{
-	proc=-2;
 	DbgPrint("UNIOCTL.SYS: Mapping memory");
 	RtlInitUnicodeString(&name, L"\\BaseNamedObjects\\Netmap");
-	proc=-3;
 	/*InitializeObjectAttributes(&oa, &name, OBJ_KERNEL_HANDLE | 
 											OBJ_FORCE_ACCESS_CHECK | 
 											OBJ_CASE_INSENSITIVE |
@@ -156,10 +160,8 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 											(HANDLE)NULL,
 											(PSECURITY_DESCRIPTOR)NULL);*/
 	InitializeObjectAttributes(&oa, &name, 0,0,NULL);
-											
-			proc=-4;								
+																			
 	ZwCreateSection(&hsection, SECTION_ALL_ACCESS, &oa, &Li, PAGE_READWRITE, SEC_COMMIT, NULL);
-	proc=-5;
 	ZwMapViewOfSection(hsection, NtCurrentProcess(), 
 						&userMem, 0, MEM_WIDTH, NULL,
 						&j, ViewShare, 0, PAGE_READWRITE);
@@ -167,8 +169,6 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 
 	
-#if 1
-	proc=1;
 	ObReferenceObjectByHandle
 		(
 		&sec_handle,
@@ -179,16 +179,16 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		0
 		);
 
-	proc=2;
+
 	ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
-	proc=3;
+#if 0
 	RtlSetDaclSecurityDescriptor(secure_desc, FALSE, NULL, FALSE);
-	proc=4;
+
 	ObReleaseObjectSecurity(secure_desc, allocated);
-	proc=5;
+
 	ObDereferenceObject(sec_obj);	
 	
-	proc=6;
+
 	ntStatus = ZwMapViewOfSection
 		(
 		sec_handle,
@@ -206,15 +206,9 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	// It is safe to close the section object handle once mapping has
 	// been established. This way, we do not have to maintain the handle
 	// or cleanup on teardown.
-	proc = 7;
+
 	ZwClose(sec_handle);
 #endif
-	}
-	except(EXCEPTION_EXECUTE_HANDLER)
-	{
-		DbgPrint("Proc %i",proc);
-		ntStatus = STATUS_INSUFFICIENT_RESOURCES;
-	}
 	
     Irp->IoStatus.Status = ntStatus;
     Irp->IoStatus.Information = 0;
@@ -480,3 +474,4 @@ void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
     }   // ZwOpenSection OK.
     return virtualAddress;
 }
+                                                                                                                                                                                                                                                                
