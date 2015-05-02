@@ -49,18 +49,16 @@ int AttachedProcesses = 0;
 //	Driver entry procedure
 NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING RegistryPath)
 {
-    NTSTATUS        ntStatus;
-    UNICODE_STRING  ntUnicodeString;    
-    UNICODE_STRING  ntWin32NameString;    
-    PDEVICE_OBJECT  deviceObject = NULL;    // pointer to the instanced device object
-	PDEVICE_DESCRIPTION devDes;
-	PMDL			pMdl;
-	int i;
-	int* test;
-	char* testChar;
+    NTSTATUS        		ntStatus;
+    UNICODE_STRING  		ntUnicodeString;    
+    UNICODE_STRING  		ntWin32NameString;    
+    PDEVICE_OBJECT  		deviceObject = NULL;    // pointer to the instanced device object
+	PDEVICE_DESCRIPTION 	devDes;
+	PMDL					pMdl;
 	
     UNREFERENCED_PARAMETER(RegistryPath);
-        
+    UNREFERENCED_PARAMETER(deviceObject);
+		
     RtlInitUnicodeString( &ntUnicodeString, NT_DEVICE_NAME );
 
     ntStatus = IoCreateDevice(
@@ -114,24 +112,22 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 
 NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
+#if ALLOCATE_NON_PAGED_MEMORY
 	PVOID   						virtualAddress = NULL;
+	SIZE_T 							view_size = MEM_WIDTH;
+	PHYSICAL_ADDRESS				phys_addr;
+#endif //ALLOCATE_NON_PAGED_MEMORY	
 	LARGE_INTEGER 					Li;
 	UNICODE_STRING 					name;
 	OBJECT_ATTRIBUTES 				oa;
-	SIZE_T 							view_size = MEM_WIDTH;
-	PHYSICAL_ADDRESS				phys_addr;
-	
     PIO_STACK_LOCATION  			pStack;
 	NTSTATUS 						ntStatus = STATUS_SUCCESS;
-	
-	PMDL								Mdl;
-	PULONG							UMBuffer;
+	PMDL							Mdl;
 
 	DbgPrint("UNIOCTL.SYS: Opening device");
 	UNREFERENCED_PARAMETER(DeviceObject);
 
-	pStack = IoGetCurrentIrpStackLocation(Irp);
-	
+	pStack = IoGetCurrentIrpStackLocation(Irp);	
 	AttachedProcesses++;
 	
 #if ALLOCATE_NON_PAGED_MEMORY
@@ -175,25 +171,25 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 #endif //ALLOCATE_NON_PAGED_MEMORY = TRUE
     Irp->IoStatus.Status = ntStatus;
     Irp->IoStatus.Information = 0;
-
     IoCompleteRequest( Irp, IO_NO_INCREMENT );
-
     return ntStatus;	
 }
 
 NTSTATUS ioctlClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
     PIO_STACK_LOCATION  pStack;
+#if DEBUG
 	char* memChar = NULL;
+#endif //DEBUG
 	
     DbgPrint("UNIOCTL.SYS: Closing device");
-
 	pStack = IoGetCurrentIrpStackLocation(Irp);
 	
+#if DEBUG	
 	memChar = (char*)userMem;
 	DbgPrint("Address MEM[0] = %p",memChar[0]);
 	DbgPrint("Value MEM[0] = %c",memChar[0]);
-			
+#endif //DEBUG			
 			
     Irp->IoStatus.Status = STATUS_SUCCESS;
     Irp->IoStatus.Information = 0;
@@ -211,17 +207,18 @@ NTSTATUS ioctlClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 VOID ioctlUnloadDriver(__in PDRIVER_OBJECT DriverObject)
 {
+#if DEBUG
 	char* memChar = NULL;	
-	
+#endif //DEBUG	
 	PDEVICE_OBJECT deviceObject = DriverObject->DeviceObject;
     UNICODE_STRING uniWin32NameString;
-
+#if DEBUG
 	memChar = (char*)userMem;
 	DbgPrint("Address MEM[0] = %p",memChar[0]);
 	DbgPrint("Value MEM[0] = %c",memChar[0]);
+#endif //DEBUG	
 	
-	UNREFERENCED_PARAMETER(deviceObject);
-	
+	UNREFERENCED_PARAMETER(deviceObject);	
 	ExFreePoolWithTag(userMem, POOL_TAG);
 	
     // Create counted string version of our Win32 device name.
