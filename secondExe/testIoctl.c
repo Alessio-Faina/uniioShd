@@ -24,6 +24,7 @@ int _cdecl main(int argc, CHAR* argv[])
 	int bRetur  = 0;
 	BOOL transactionResult;
 	void* sharedMem = NULL;
+	MEMORY_ENTRY*	memReceived;
 	
 	printf("Start!\n");
 
@@ -93,17 +94,33 @@ int _cdecl main(int argc, CHAR* argv[])
 		
 		transactionResult = DeviceIoControl ( hDevice,
 							(DWORD) IOCTL_MMAP,
-							&sharedMem,
-							sizeof(void*),
-							&sharedMem,
+							NULL,
+							0,
+							sharedMem,
 							sizeof(void*),
 							&bRetur,
 							NULL
 							);
 		
+		memReceived = (MEMORY_ENTRY*)sharedMem;
+		printf("Content of sharedMem: %c\n",((char*)memReceived->pBuffer)[0]);
 		
+		((char*)memReceived->pBuffer)[0]='2';
+		
+		transactionResult = DeviceIoControl ( hDevice,
+							(DWORD) IOCTL_TEST_WRITTEN_DATA,
+							0,
+							0,
+							0,
+							0,
+							&bRetur,
+							NULL
+							);
+		/*
 		printf("Address of sharedMem: 0x%p\n",&sharedMem);
-		printf("Content of sharedMem: %c\n",((char*)sharedMem)[0]);
+		printf("Content of sharedMem: %c\n",((char*)sharedMem)[0]);*/
+		
+		
 		//----------------------------------------------------------------------
 	system("PAUSE");
 	printf("\nClosing handle...:\n");

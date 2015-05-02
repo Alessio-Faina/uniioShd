@@ -4,6 +4,9 @@
 
 #include "uniioctl.h"
 
+#define ALLOCATE_NON_PAGED_MEMORY 1
+#define DEBUG 1
+
 // Device driver routines
 DRIVER_INITIALIZE DriverEntry;
 
@@ -29,7 +32,7 @@ VOID PrintIrpInfo(PIRP Irp);
 
 //Tag for memory pool
 #define POOL_TAG    'looP'
-const int MEM_WIDTH = 4096;
+const int MEM_WIDTH = 4096*1024*16;
 
 void*	userMem = NULL;
 HANDLE 	hsection;
@@ -95,45 +98,15 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
         DbgPrint("UNIIOCTL.SYS: Couldn't create symbolic link\n");
         IoDeleteDevice( deviceObject );
     }
-/*
-	pMdl = IoAllocateMdl(NULL,
-						 4096,
-						 FALSE,
-						 FALSE,
-						 NULL);
-	if(!pMdl) {
-		DbgPrintEx(DPFLTR_IHVVIDEO_ID, DPFLTR_INFO_LEVEL, "Error on IoAllocateMdl. Returning from driver early.\n");
-		return STATUS_INSUFFICIENT_RESOURCES;
-	}
-	MmBuildMdlForNonPagedPool(pMdl);
-	userMemory = (void *)MmMapLockedPagesSpecifyCache(pMdl, UserMode, MmWriteCombined, NULL, FALSE, LowPagePriority);
-	*/
-	
 	userMem = ExAllocatePoolWithTag(NonPagedPool,
 									MEM_WIDTH, 
 									POOL_TAG );
 																
     memset(userMem,0,4096);
-
-	/*try
-	{
-		//DbgPrint("Mem address: 0x%p",userMem);
-		test = (int*)userMem;
-
-		
-		for (i=0; i<(4096/sizeof(int)); i++)
-		{
-			test[i]=i;	
-		}
-		
-		/*testChar = (char*)userMem;
-		testChar[0]='d';
-	}
-	except(EXCEPTION_EXECUTE_HANDLER)
-	{
-		DbgPrint("Failed to test");
-	}
-    */
+#if DEBUG
+	((char*)userMem)[0]='K';	
+#endif //DEBUG
+	
 	deviceObject->Flags |= DO_DIRECT_IO;
 	
     return ntStatus;
@@ -153,53 +126,22 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 	PMDL								Mdl;
 	PULONG							UMBuffer;
-	
-		PVOID sec_obj;
-		PSECURITY_DESCRIPTOR secure_desc;
-		BOOLEAN allocated;
 
-		HANDLE sec_handle;
-	
 	DbgPrint("UNIOCTL.SYS: Opening device");
-
-	
 	UNREFERENCED_PARAMETER(DeviceObject);
 
 	pStack = IoGetCurrentIrpStackLocation(Irp);
 	
 	AttachedProcesses++;
+	
+#if ALLOCATE_NON_PAGED_MEMORY
 	if (AttachedProcesses==1)
 	{
 		Li.HighPart=0;
 		Li.LowPart=MEM_WIDTH;
-		//view_size=MEM_WIDTH;
-
+		
 		DbgPrint("UNIOCTL.SYS: Mapping memory");
 		RtlInitUnicodeString(&name, L"\\BaseNamedObjects\\Netmap");
-		/*InitializeObjectAttributes(&oa, &name, OBJ_KERNEL_HANDLE | 
-												OBJ_FORCE_ACCESS_CHECK | 
-												OBJ_CASE_INSENSITIVE |
-												OBJ_OPENIF,
-												(HANDLE)NULL,
-												(PSECURITY_DESCRIPTOR)NULL);*/
-												
-		//phys_addr = MmGetPhysicalAddress(userMem);
-		//DbgPrint("userMem Physical address: %p\n",phys_addr);
-		//DbgPrint("userMem Virtual address: %p\n",userMem);
-		
-		//virtualAddress = 0;
-		
-		/*Mdl =  IoAllocateMdl(userMem, MEM_WIDTH, 0,FALSE, NULL);
-		MmBuildMdlForNonPagedPool(Mdl);
-		UMBuffer = (PULONG)(((ULONG)MmMapLockedPagesSpecifyCache (Mdl, 
-													UserMode,
-													MmNonCached,
-													NULL,
-													FALSE,
-													NormalPagePriority)
-													| MmGetMdlByteOffset(Mdl)));
-		phys_addr = MmGetPhysicalAddress(UMBuffer);		
-		*/
 		
 		InitializeObjectAttributes(&oa, &name, OBJ_CASE_INSENSITIVE, (HANDLE)0, (PSECURITY_DESCRIPTOR)0);
 																				
@@ -211,32 +153,6 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 						SEC_COMMIT, 
 						0);	
 		
-		/*
-		ObReferenceObjectByHandle(hsection, 
-									SECTION_ALL_ACCESS, 
-									(POBJECT_TYPE)0, 
-									KernelMode, 
-									&sec_obj, 
-									(POBJECT_HANDLE_INFORMATION)0);*/
-		
-		/*ntStatus = ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);
-		if(!NT_SUCCESS(ntStatus))
-		{
-			return STATUS_INSUFFICIENT_RESOURCES;
-		}
-
-		RtlSetDaclSecurityDescriptor(secure_desc,FALSE,NULL,FALSE);
-		ObReleaseObjectSecurity(secure_desc, allocated);					
-		ObDereferenceObject(sec_obj);					
-		*/
-			
-		/*ZwMapViewOfSection(hsection, NtCurrentProcess(), 
-							&userMem, 0, MEM_WIDTH, NULL,
-							&j, ViewShare, 0, PAGE_READWRITE);*/
-							
-		//offset.QuadPart = (LONGLONG)userMem;					
-		//virtualAddress = userMem;
-		//-------------------------------------Test memset locale-----------------------------
 		ZwMapViewOfSection(hsection, 						//SectionHandle 
 							(HANDLE)-1,		 				//ProcessHandle 	
 							&virtualAddress,				//BaseAddress 
@@ -246,73 +162,17 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 							&view_size, 					//ViewSize 
 							ViewShare, 						//InheritDisposition 
 							0, 								//AllocationType 
-							PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
+							PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 
+#if DEBUG							
 		((char*)virtualAddress)[0] = 't';
 		((char*)virtualAddress)[1] = 'e';
 		((char*)virtualAddress)[2] = 's';
 		((char*)virtualAddress)[3] = 't';
+#endif DEBUG
 		
-		//userMem = virtualAddress;
-		//ZwUnmapViewOfSection( (HANDLE)-1, virtualAddress);  
-		//ZwClose(hsection);						  
-		//---------------------------------------------------------------------------------------
-		
-		/*----------------------------OLD SEMIWORKING PART (no bsod)----------------------------
-		ZwMapViewOfSection(hsection, 						//SectionHandle 
-							ZwCurrentProcess(),		 		//ProcessHandle 	
-							&userMem,	//&virtualAddress, 				//BaseAddress 
-							0L, 								//ZeroBits 
-							MEM_WIDTH, 						//CommitSize 
-							NULL,		//&phys_addr,						//SectionOffset 					
-							&view_size, 					//ViewSize 
-							ViewShare, 						//InheritDisposition 
-							0, 								//AllocationType 
-							PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 	
-
-	*/						
-		//ZwClose( sec_obj );
-		//DbgPrint("virtualAddress: %p\n",virtualAddress);
-		DbgPrint("userMem: %p\n",userMem);
-		//virtualAddress[0]='e';
-		((char*)userMem)[0]='K';
-		//DbgPrint("hsection address: %p\n",hsection);
-		
-
-	#if 0	
-		ObReferenceObjectByHandle
-			(
-			&sec_handle,
-			SECTION_ALL_ACCESS,
-			NULL,
-			KernelMode,
-			&sec_obj,
-			0
-			);
-		ObGetObjectSecurity(sec_obj, &secure_desc, &allocated);	
-		RtlSetDaclSecurityDescriptor(secure_desc, FALSE, NULL, FALSE);
-		ObReleaseObjectSecurity(secure_desc, allocated);
-		ObDereferenceObject(sec_obj);	
-		ntStatus = ZwMapViewOfSection
-			(
-			sec_handle,
-			ZwCurrentProcess(),
-			&userMem,
-			0L,
-			view_size,
-			NULL,
-			&view_size,
-			ViewUnmap,
-			0,
-			PAGE_READWRITE
-			);
-
-		// It is safe to close the section object handle once mapping has
-		// been established. This way, we do not have to maintain the handle
-		// or cleanup on teardown.
-		ZwClose(sec_handle);
-#endif
-			
+		DbgPrint("userMem: %p\n",userMem);		
 	}
+#endif //ALLOCATE_NON_PAGED_MEMORY = TRUE
     Irp->IoStatus.Status = ntStatus;
     Irp->IoStatus.Information = 0;
 
@@ -337,12 +197,14 @@ NTSTATUS ioctlClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			
     Irp->IoStatus.Status = STATUS_SUCCESS;
     Irp->IoStatus.Information = 0;
-	//ExFreePool(userMemory);
 	AttachedProcesses--;
+	
+#if ALLOCATE_NON_PAGED_MEMORY
 	if (AttachedProcesses==0)
 	{
 		ZwClose(hsection);
 	}
+#endif //ALLOCATE_NON_PAGED_MEMORY
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
     return STATUS_SUCCESS;
 }
@@ -357,6 +219,7 @@ VOID ioctlUnloadDriver(__in PDRIVER_OBJECT DriverObject)
 	memChar = (char*)userMem;
 	DbgPrint("Address MEM[0] = %p",memChar[0]);
 	DbgPrint("Value MEM[0] = %c",memChar[0]);
+	ExFreePoolWithTag(userMem, POOL_TAG);
 	
     // Create counted string version of our Win32 device name.
     RtlInitUnicodeString( &uniWin32NameString, DOS_DEVICE_NAME );
@@ -416,9 +279,11 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		
 		returnedValue = &memBase;
 		
-		buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);		
+		buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
+#if DEBUG		
 		DbgPrint("1-AssBuff: %c\n", ((char*)buffer)[0]);
 		DbgPrint("1-userMem: %c\n", ((char*)userMem)[0]);
+#endif //DEBUG
 		mdl = IoAllocateMdl( userMem,
 								MEM_WIDTH, 
 								FALSE, 
@@ -432,18 +297,16 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 										  NULL,
 										  FALSE, 
 										  NormalPagePriority);
-		//buffer=UserVirtualAddress;	
 		returnedValue->pBuffer = UserVirtualAddress;
 		RtlCopyMemory(buffer,
 					  returnedValue,
 					  sizeof(PVOID));
-		//buffer=returnedValue;
+#if DEBUG
 		DbgPrint("2-AssBuff: %c\n", ((char*)buffer)[0]);
 		DbgPrint("2-userMem: %c\n", ((char*)userMem)[0]);
-		DbgPrint("2-UserVirtualAddress: %c\n", ((char*)UserVirtualAddress)[0]);
-		//Irp->AssociatedIrp.SystemBuffer = &UserVirtualAddress;							  
+		DbgPrint("2-UserVirtualAddress: %c\n", ((char*)UserVirtualAddress)[0]);						  
+#endif //DEBUG
 		Irp->IoStatus.Information = sizeof(void*);	
-		//DbgPrint("Copied in buffer address 0x%p\n", userMemory);
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
 		try
@@ -492,142 +355,4 @@ VOID PrintIrpInfo(PIRP Irp)
         irpSp->Parameters.DeviceIoControl.OutputBufferLength );
     return;
 }
-/*
-PVOID CreateAndMapMemory(PMDL* PMemMdl,PVOID* UserVa)
-{
-    PMDL  mdl;
-    PVOID userVAToReturn;
-    PHYSICAL_ADDRESS lowAddress,
-    PHYSICAL_ADDRESS highAddress,
-    SIZE_T totalBytes;
 
- //
- // Initialize the Physical addresses need for MmAllocatePagesForMdl
- //
- lowAddress.QuadPart = 0;
- MAX_MEM(highAddress.QuadPart);
- totalBytes.QuadPart = PAGE_SIZE;
- 
-    //
-    // Allocate a 4K buffer to share with the application
-    //
-    mdl = MmAllocatePagesForMdl(lowAddress,highAddress,lowAddress,totalBytes);
- 
-    if(!mdl) {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    //
-    // The preferred way to map the buffer into user space
-    //
-    userVAToReturn =
-         MmMapLockedPagesSpecifyCache(mdl,          // MDL
-                                      UserMode,     // Mode
-                                      MmCached,     // Caching
-                                      NULL,         // Address
-                                      FALSE,        // Bugcheck?
-                                      NormalPagePriority); // Priority
-
-    //
-    // If we get NULL back, the request didn't work.
-    // I'm thinkin' that's better than a bug check anyday.
-    //
-    if(!userVAToReturn)  {
-
-        MmFreePagesFromMdl(mdl);       
-        IoFreeMdl(mdl);
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-
-    //
-    // Return the allocated pointers
-    //
-    *UserVa = userVAToReturn;
-    *PMemMdl = mdl;
-
-    DbgPrint("UserVA = 0x%0x\n", userVAToReturn);
-
-    return STATUS_SUCCESS;
-}
-void UnMapAndFreeMemory(PMDL PMdl,PVOID UserVa)
-{
- //
- // Make sure we have an MDL to free
-//
- if(!PMdl) {
-  return;
- }
- 
- //
- // Return the allocated resources.
- //
- MmUnmapLockedPages(UserVa, PMdl);
- 
- MmFreePagesFromMdl(PMdl);       
- I
- 
- void *mapToUser( PHYSICAL_ADDRESS physicalAddress, ULONG memlen )
-{
-    UNICODE_STRING      memName;
-    OBJECT_ATTRIBUTES   objectAttributes;
-    HANDLE              hPhysMem;
-    void                *physMemSect;
-    PHYSICAL_ADDRESS    viewBase;
-    UCHAR               *virtualAddress;
-    ULONG               length;
-    NTSTATUS            status;
-
-	// if( userAddrIdx == N_USER_ADDRESSES )
-    //    return 0; // No more room to store address for unmapping at exit.
-
-    memset( &objectAttributes, 0, sizeof( objectAttributes ));
-    RtlInitUnicodeString( &memName, L"\\Device\\PhysicalMemory" );
-    InitializeObjectAttributes( 
-      &objectAttributes, 
-      &memName,
-      OBJ_CASE_INSENSITIVE, 
-      (HANDLE)0, 
-      (PSECURITY_DESCRIPTOR)0 );
-    
-    virtualAddress = 0;
-    status = ZwOpenSection( 
-      &hPhysMem, 
-      SECTION_ALL_ACCESS,
-      &objectAttributes );
-    if( status == STATUS_SUCCESS )
-    {   // ZwOpenSection OK.
-        status = ObReferenceObjectByHandle( 
-          hPhysMem,
-          SECTION_ALL_ACCESS, 
-          (POBJECT_TYPE)0, 
-          KernelMode, 
-          &physMemSect,
-          (POBJECT_HANDLE_INFORMATION)0 );
-        if( status == STATUS_SUCCESS )
-        {   // ObReferenceObjectByHandle OK.
-            viewBase = physicalAddress;
-            length = memlen;
-            status = ZwMapViewOfSection(
-              hPhysMem,         // IN HANDLE SectionHandle
-              (HANDLE)-1,       // IN HANDLE ProcessHandle (Any/current?).
-              &virtualAddress,  // IN OUT PVOID *BaseAddress
-              0L,               // IN ULONG ZeroBits
-              length,           // IN ULONG Come,        // IN OUT PLARGE_INTEGER SectionOffset
-              &length,          // IN OUT PULONG ViewSize
-              ViewShare,        // IN SECTION_INHERIT InheritDisposition
-              0,                // IN ULONG AllocationType
-              PAGE_READWRITE ); // IN ULONG Protect.
-            if( status == STATUS_SUCCESS )
-            {   // ZwMapViewOfSection OK.
-                virtualAddress += physicalAddress.LowPart - viewBase.LowPart;
-               // userAddresses[ userAddrIdx++ ] = virtualAddress;  // Save for unmapping.
-            }
-            else
-                virtualAddress = 0;
-               }   // ObReferenceObjectByHandle OK.
-        ZwClose( hPhysMem );
-    }   // ZwOpenSection OK.
-    return virtualAddress;
-};
-*/
