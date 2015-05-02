@@ -23,7 +23,8 @@ int _cdecl main(int argc, CHAR* argv[])
 	char InputBuffer[100];
 	int bRetur  = 0;
 	BOOL transactionResult;
-
+	void* sharedMem = NULL;
+	
 	printf("Start!\n");
 
 	//If at least one parameter unload a locked driver
@@ -81,7 +82,29 @@ int _cdecl main(int argc, CHAR* argv[])
 	}
 	printf("Press enter to start...\n");
 	system("PAUSE");
-	TestWrite();
+	//TestWrite();
+	//---------------------------------------------------------------------------
+		sharedMem = malloc(4096);
+		//memset(sharedMem, 1, 4096);
+		((char*)sharedMem)[0]='c';
+		
+		printf("Address of sharedMem: 0x%p\n",&sharedMem);
+		printf("Content of sharedMem: %c\n",((char*)sharedMem)[0]);
+		
+		transactionResult = DeviceIoControl ( hDevice,
+							(DWORD) IOCTL_MMAP,
+							&sharedMem,
+							sizeof(void*),
+							&sharedMem,
+							sizeof(void*),
+							&bRetur,
+							NULL
+							);
+		
+		
+		printf("Address of sharedMem: 0x%p\n",&sharedMem);
+		printf("Content of sharedMem: %c\n",((char*)sharedMem)[0]);
+		//----------------------------------------------------------------------
 	system("PAUSE");
 	printf("\nClosing handle...:\n");
 	CloseHandle ( hDevice );

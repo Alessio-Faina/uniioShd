@@ -26,7 +26,8 @@ int _cdecl main(int argc, CHAR* argv[])
 	LPCVOID mapping;
 	SYSTEM_INFO *sysInfo;
 	
-	char* sharedMem = NULL;
+	void* sharedMem = NULL;
+	MEMORY_ENTRY*	memReceived;
 
 	printf("Start!\n");
 	sysInfo = malloc(sizeof(SYSTEM_INFO));
@@ -119,7 +120,35 @@ int _cdecl main(int argc, CHAR* argv[])
 		printf("CreateFile ok!\n");
 		printf("Press enter to start...\n");
 		system("PAUSE");
+		
+		sharedMem = malloc(4096);
+		//memset(sharedMem, 1, 4096);
+		((char*)sharedMem)[0]='U';
+		
+		printf("Address of sharedMem: 0x%p\n",&sharedMem);
+		printf("Content of sharedMem: %c\n",((char*)sharedMem)[0]);
+		
+		transactionResult = DeviceIoControl ( hDevice,
+							(DWORD) IOCTL_MMAP,
+							NULL,
+							0,
+							sharedMem,
+							sizeof(void*),
+							&bRetur,
+							NULL
+							);
+		
+		
+		printf("Address of sharedMem: 0x%p\n",&sharedMem);
+		printf("Content of sharedMem: %c\n",((char*)sharedMem)[0]);
+		
+		memReceived = (MEMORY_ENTRY*)sharedMem;
+		printf("Content of sharedMem: %c\n",((char*)memReceived->pBuffer)[0]);
+		
+		((char*)memReceived->pBuffer)[0]='M';
+		/*
 		TestWrite();
+		*/
 		
 		transactionResult = DeviceIoControl ( hDevice,
 							(DWORD) IOCTL_TEST_WRITTEN_DATA,
@@ -131,8 +160,13 @@ int _cdecl main(int argc, CHAR* argv[])
 							NULL
 							);
 							
-		system("PAUSE");					
-		TestWrite();						
+		system("PAUSE");
+		
+		/*		
+		TestWrite();	
+		*/
+
+		
 		printf("\nClosing handle...:\n");
 		system("PAUSE");
 		CloseHandle ( hDevice );

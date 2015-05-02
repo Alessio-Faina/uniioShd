@@ -51,6 +51,7 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
     UNICODE_STRING  ntWin32NameString;    
     PDEVICE_OBJECT  deviceObject = NULL;    // pointer to the instanced device object
 	PDEVICE_DESCRIPTION devDes;
+	PMDL			pMdl;
 	int i;
 	int* test;
 	char* testChar;
@@ -113,6 +114,7 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 									POOL_TAG );
 																
     memset(userMem,0,4096);
+
 	/*try
 	{
 		//DbgPrint("Mem address: 0x%p",userMem);
@@ -272,7 +274,7 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		//DbgPrint("virtualAddress: %p\n",virtualAddress);
 		DbgPrint("userMem: %p\n",userMem);
 		//virtualAddress[0]='e';
-		((char*)userMem)[0]='e';
+		((char*)userMem)[0]='K';
 		//DbgPrint("hsection address: %p\n",hsection);
 		
 
@@ -376,11 +378,16 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
     ULONG               inBufLength; 
     ULONG               outBufLength; 
     PCHAR               inBuf, outBuf;
-    PMDL                mdl = NULL;
-    PCHAR       		buffer = NULL;
+    PMDL 				mdl = NULL;
+	
+    PVOID       		buffer = NULL;
+	
+	MEMORY_ENTRY 		*returnedValue;
+	MEMORY_ENTRY		memBase;
 	
 	int*				mem = NULL;
 	char*				memChar = NULL;
+	void* UserVirtualAddress = NULL;
 	
 	DbgPrint("UNIIOCTL.SYS: ioctlDeviceControl\n");
 	
@@ -406,14 +413,35 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_MMAP){
 		inBufLength = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 		outBufLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-		//inBuf = Irp->AssociatedIrp.SystemBuffer;
-		//mapToUser( userMemory, MEM_WIDTH);
-		Irp->AssociatedIrp.SystemBuffer=userMem;
 		
-		/*buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);	
+		returnedValue = &memBase;
+		
+		buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);		
+		DbgPrint("1-AssBuff: %c\n", ((char*)buffer)[0]);
+		DbgPrint("1-userMem: %c\n", ((char*)userMem)[0]);
+		mdl = IoAllocateMdl( userMem,
+								MEM_WIDTH, 
+								FALSE, 
+								FALSE, 
+								NULL );
+		MmBuildMdlForNonPagedPool(mdl);
+		UserVirtualAddress = MmMapLockedPagesSpecifyCache(
+										  mdl,
+										  UserMode, 
+										  MmNonCached,
+										  NULL,
+										  FALSE, 
+										  NormalPagePriority);
+		//buffer=UserVirtualAddress;	
+		returnedValue->pBuffer = UserVirtualAddress;
 		RtlCopyMemory(buffer,
-						userMemory,
-						sizeof(userMemory));*/			
+					  returnedValue,
+					  sizeof(PVOID));
+		//buffer=returnedValue;
+		DbgPrint("2-AssBuff: %c\n", ((char*)buffer)[0]);
+		DbgPrint("2-userMem: %c\n", ((char*)userMem)[0]);
+		DbgPrint("2-UserVirtualAddress: %c\n", ((char*)UserVirtualAddress)[0]);
+		//Irp->AssociatedIrp.SystemBuffer = &UserVirtualAddress;							  
 		Irp->IoStatus.Information = sizeof(void*);	
 		//DbgPrint("Copied in buffer address 0x%p\n", userMemory);
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
