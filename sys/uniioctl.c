@@ -245,8 +245,7 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
     PVOID       		buffer = NULL;
 	
-	MEMORY_ENTRY 		*returnedValue;
-	MEMORY_ENTRY		memBase;
+	MEMORY_ENTRY		returnedValue;
 	
 	int*				mem = NULL;
 	char*				memChar = NULL;
@@ -277,36 +276,43 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		inBufLength = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 		outBufLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 		
-		returnedValue = &memBase;
-		
-		buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
-#if DEBUG		
-		DbgPrint("1-AssBuff: %c\n", ((char*)buffer)[0]);
-		DbgPrint("1-userMem: %c\n", ((char*)userMem)[0]);
-#endif //DEBUG
-		mdl = IoAllocateMdl( userMem,
-								MEM_WIDTH, 
-								FALSE, 
-								FALSE, 
-								NULL );
-		MmBuildMdlForNonPagedPool(mdl);
-		UserVirtualAddress = MmMapLockedPagesSpecifyCache(
-										  mdl,
-										  UserMode, 
-										  MmNonCached,
-										  NULL,
-										  FALSE, 
-										  NormalPagePriority);
-		returnedValue->pBuffer = UserVirtualAddress;
-		RtlCopyMemory(buffer,
-					  returnedValue,
-					  sizeof(PVOID));
-#if DEBUG
-		DbgPrint("2-AssBuff: %c\n", ((char*)buffer)[0]);
-		DbgPrint("2-userMem: %c\n", ((char*)userMem)[0]);
-		DbgPrint("2-UserVirtualAddress: %c\n", ((char*)UserVirtualAddress)[0]);						  
-#endif //DEBUG
-		Irp->IoStatus.Information = sizeof(void*);	
+		try
+		{
+			buffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
+			#if DEBUG		
+			DbgPrint("1-AssBuff: %c\n", ((char*)buffer)[0]);
+			DbgPrint("1-userMem: %c\n", ((char*)userMem)[0]);
+			#endif //DEBUG
+			mdl = IoAllocateMdl( userMem,
+									MEM_WIDTH, 
+									FALSE, 
+									FALSE, 
+									NULL );
+			MmBuildMdlForNonPagedPool(mdl);
+			UserVirtualAddress = MmMapLockedPagesSpecifyCache(
+											  mdl,
+											  UserMode, 
+											  MmNonCached,
+											  NULL,
+											  FALSE, 
+											  NormalPagePriority);
+			returnedValue.pBuffer = UserVirtualAddress;
+			RtlCopyMemory(buffer,
+						  &returnedValue,
+						  sizeof(PVOID));
+			#if DEBUG
+			DbgPrint("2-AssBuff: %c\n", ((char*)buffer)[0]);
+			DbgPrint("2-userMem: %c\n", ((char*)userMem)[0]);
+			DbgPrint("2-UserVirtualAddress: %c\n", ((char*)UserVirtualAddress)[0]);						  
+			#endif //DEBUG
+			Irp->IoStatus.Information = sizeof(void*);	
+		}
+		except(EXCEPTION_EXECUTE_HANDLER)
+		{
+			NtStatus = STATUS_INSUFFICIENT_RESOURCES;
+			Irp->IoStatus.Information = 0;
+			DbgPrint("Failed to read memory");
+		}		
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
 		try
