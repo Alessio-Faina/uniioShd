@@ -32,7 +32,7 @@ int _cdecl main(int argc, CHAR* argv[])
 	if (argc>1)
 	{
 		printf("Try to unload!\n");
-		if ((hDevice = CreateFile( "\\\\.\\UnipiIoctl",
+		if ((hDevice = CreateFile( "\\\\.\\NetMap",
                             GENERIC_READ | GENERIC_WRITE,
                             0,
                             NULL,
@@ -63,7 +63,7 @@ int _cdecl main(int argc, CHAR* argv[])
 		return 0;
 	}
 	
-	if ((hDevice = CreateFile( "\\\\.\\UnipiIoctl",
+	if ((hDevice = CreateFile( "\\\\.\\NetMap",
                             GENERIC_READ | GENERIC_WRITE,
                             0,
                             NULL,

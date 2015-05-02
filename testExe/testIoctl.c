@@ -42,7 +42,7 @@ int _cdecl main(int argc, CHAR* argv[])
 	if (argc>1)
 	{
 		printf("Try to unload!\n");
-		if ((hDevice = CreateFile( "\\\\.\\UnipiIoctl",
+		if ((hDevice = CreateFile( "\\\\.\\NetMap",
                             GENERIC_READ | GENERIC_WRITE,
                             0,
                             NULL,
@@ -73,7 +73,7 @@ int _cdecl main(int argc, CHAR* argv[])
 		return 0;
 	}
 	
-	if ((hDevice = CreateFile( "\\\\.\\UnipiIoctl",
+	if ((hDevice = CreateFile( "\\\\.\\NetMap",
                             GENERIC_READ | GENERIC_WRITE,
                             0,
                             NULL,
@@ -105,7 +105,7 @@ int _cdecl main(int argc, CHAR* argv[])
                          );
             return;
         }
-        hDevice = CreateFile( "\\\\.\\UnipiIoctl",
+        hDevice = CreateFile( "\\\\.\\NetMap",
                             GENERIC_READ | GENERIC_WRITE,
                             0,
                             NULL,
@@ -162,10 +162,23 @@ int _cdecl main(int argc, CHAR* argv[])
 							
 		system("PAUSE");
 		
+		((char*)memReceived->pBuffer)[0]='2';
+		((char*)memReceived->pBuffer)[0]='3';
+		((char*)memReceived->pBuffer)[0]='4';
 		/*		
 		TestWrite();	
 		*/
-
+		transactionResult = DeviceIoControl ( hDevice,
+							(DWORD) IOCTL_TEST_WRITTEN_DATA,
+							0,
+							0,
+							0,
+							0,
+							&bRetur,
+							NULL
+							);
+							
+		system("PAUSE");
 		
 		printf("\nClosing handle...:\n");
 		system("PAUSE");

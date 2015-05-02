@@ -219,6 +219,9 @@ VOID ioctlUnloadDriver(__in PDRIVER_OBJECT DriverObject)
 	memChar = (char*)userMem;
 	DbgPrint("Address MEM[0] = %p",memChar[0]);
 	DbgPrint("Value MEM[0] = %c",memChar[0]);
+	
+	UNREFERENCED_PARAMETER(deviceObject);
+	
 	ExFreePoolWithTag(userMem, POOL_TAG);
 	
     // Create counted string version of our Win32 device name.
@@ -249,7 +252,7 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	
 	int*				mem = NULL;
 	char*				memChar = NULL;
-	void* UserVirtualAddress = NULL;
+	void* 				UserVirtualAddress = NULL;
 	
 	DbgPrint("UNIIOCTL.SYS: ioctlDeviceControl\n");
 	
@@ -311,7 +314,7 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		{
 			NtStatus = STATUS_INSUFFICIENT_RESOURCES;
 			Irp->IoStatus.Information = 0;
-			DbgPrint("Failed to read memory");
+			DbgPrint("Failed to allocate memory!!!!!");
 		}		
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
