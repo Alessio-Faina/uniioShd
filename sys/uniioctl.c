@@ -96,14 +96,19 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
         DbgPrint("UNIIOCTL.SYS: Couldn't create symbolic link\n");
         IoDeleteDevice( deviceObject );
     }
+#if !ALLOCATE_NON_PAGED_MEMORY
 	userMem = ExAllocatePoolWithTag(NonPagedPool,
 									MEM_WIDTH, 
 									POOL_TAG );
 																
     memset(userMem,0,4096);
-#if DEBUG
-	((char*)userMem)[0]='K';	
-#endif //DEBUG
+	#if DEBUG
+		((char*)userMem)[0]='K';	
+	#endif //DEBUG
+
+#endif
+
+
 	
 	deviceObject->Flags |= DO_DIRECT_IO;
 	
@@ -113,7 +118,7 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 #if ALLOCATE_NON_PAGED_MEMORY
-	PVOID   						virtualAddress = NULL;
+	//PVOID   						virtualAddress = NULL;
 	SIZE_T 							view_size = MEM_WIDTH;
 	PHYSICAL_ADDRESS				phys_addr;
 #endif //ALLOCATE_NON_PAGED_MEMORY	
@@ -151,7 +156,7 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		
 		ZwMapViewOfSection(hsection, 						//SectionHandle 
 							(HANDLE)-1,		 				//ProcessHandle 	
-							&virtualAddress,				//BaseAddress 
+							&userMem,						//BaseAddress 
 							0L, 							//ZeroBits 
 							MEM_WIDTH, 						//CommitSize 
 							NULL,							//SectionOffset 					
@@ -159,11 +164,13 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 							ViewShare, 						//InheritDisposition 
 							0, 								//AllocationType 
 							PAGE_READWRITE | PAGE_NOCACHE);	//Win32Protect 
+							
+						
 #if DEBUG							
-		((char*)virtualAddress)[0] = 't';
-		((char*)virtualAddress)[1] = 'e';
-		((char*)virtualAddress)[2] = 's';
-		((char*)virtualAddress)[3] = 't';
+		((char*)userMem)[0] = 't';
+		((char*)userMem)[1] = 'e';
+		((char*)userMem)[2] = 's';
+		((char*)userMem)[3] = 't';
 #endif DEBUG
 		
 		DbgPrint("userMem: %p\n",userMem);		
@@ -218,9 +225,10 @@ VOID ioctlUnloadDriver(__in PDRIVER_OBJECT DriverObject)
 	DbgPrint("Value MEM[0] = %c",memChar[0]);
 #endif //DEBUG	
 	
-	UNREFERENCED_PARAMETER(deviceObject);	
+	UNREFERENCED_PARAMETER(deviceObject);
+#if !ALLOCATE_NON_PAGED_MEMORY
 	ExFreePoolWithTag(userMem, POOL_TAG);
-	
+#endif	
     // Create counted string version of our Win32 device name.
     RtlInitUnicodeString( &uniWin32NameString, DOS_DEVICE_NAME );
 
@@ -273,6 +281,10 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_METHOD_OUT_NEITHER){
 		
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_MMAP){
+		#if !ALLOCATE_NON_PAGED_MEMORY
+			NtStatus = STATUS_INVALID_DEVICE_REQUEST;	
+			break;
+		#endif
 		inBufLength = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 		outBufLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 		
