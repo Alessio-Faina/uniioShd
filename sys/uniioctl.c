@@ -4,7 +4,7 @@
 
 #include "uniioctl.h"
 
-#define ALLOCATE_NON_PAGED_MEMORY 1
+#define ALLOCATE_NON_PAGED_MEMORY TRUE
 #define DEBUG 1
 
 // Device driver routines
@@ -96,7 +96,7 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
         DbgPrint("UNIIOCTL.SYS: Couldn't create symbolic link\n");
         IoDeleteDevice( deviceObject );
     }
-#if !ALLOCATE_NON_PAGED_MEMORY
+#if ALLOCATE_NON_PAGED_MEMORY
 	userMem = ExAllocatePoolWithTag(NonPagedPool,
 									MEM_WIDTH, 
 									POOL_TAG );
@@ -117,7 +117,7 @@ NTSTATUS DriverEntry(__in PDRIVER_OBJECT DriverObject, __in PUNICODE_STRING Regi
 
 NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-#if ALLOCATE_NON_PAGED_MEMORY
+#if !ALLOCATE_NON_PAGED_MEMORY
 	//PVOID   						virtualAddress = NULL;
 	SIZE_T 							view_size = MEM_WIDTH;
 	PHYSICAL_ADDRESS				phys_addr;
@@ -135,7 +135,8 @@ NTSTATUS ioctlCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	pStack = IoGetCurrentIrpStackLocation(Irp);	
 	AttachedProcesses++;
 	
-#if ALLOCATE_NON_PAGED_MEMORY
+#if !ALLOCATE_NON_PAGED_MEMORY
+	DbgPrint("UNIOCTL.SYS: Allocating paged mem\n");
 	if (AttachedProcesses==1)
 	{
 		Li.HighPart=0;
@@ -202,7 +203,7 @@ NTSTATUS ioctlClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
     Irp->IoStatus.Information = 0;
 	AttachedProcesses--;
 	
-#if ALLOCATE_NON_PAGED_MEMORY
+#if !ALLOCATE_NON_PAGED_MEMORY
 	if (AttachedProcesses==0)
 	{
 		ZwClose(hsection);
@@ -226,7 +227,7 @@ VOID ioctlUnloadDriver(__in PDRIVER_OBJECT DriverObject)
 #endif //DEBUG	
 	
 	UNREFERENCED_PARAMETER(deviceObject);
-#if !ALLOCATE_NON_PAGED_MEMORY
+#if ALLOCATE_NON_PAGED_MEMORY
 	ExFreePoolWithTag(userMem, POOL_TAG);
 #endif	
     // Create counted string version of our Win32 device name.
@@ -283,8 +284,7 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_MMAP){
 		#if !ALLOCATE_NON_PAGED_MEMORY
 			NtStatus = STATUS_INVALID_DEVICE_REQUEST;	
-			break;
-		#endif
+		#else
 		inBufLength = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 		outBufLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 		
@@ -324,7 +324,8 @@ NTSTATUS ioctlDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			NtStatus = STATUS_INSUFFICIENT_RESOURCES;
 			Irp->IoStatus.Information = 0;
 			DbgPrint("Failed to allocate memory!!!!!");
-		}		
+		}	
+		#endif //!ALLOCATE_NON_PAGED_MEMORY
 	}else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_TEST_WRITTEN_DATA){
 		DbgPrint("Address MEM = %p",userMem);
 		try
